@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MediaInfo Card Generator</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Sora:wght@300;400;600;700&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #0f1117;
+    font-family: 'Sora', sans-serif;
+    color: #e2e8f0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 36px 20px;
+    gap: 24px;
+  }
+
+  /* ── HEADER ── */
+  .app-header { text-align: center; }
+  .app-header h1 {
+    font-size: 1.1rem; font-weight: 700; color: #4f8ef7;
+    letter-spacing: 0.14em; text-transform: uppercase;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .app-header p { font-size: 0.7rem; color: #64748b; margin-top: 5px; }
+
+  /* ── EDITOR ── */
+  .editor-wrap {
+    display: flex; gap: 16px;
+    width: 100%; max-width: 1100px; align-items: flex-start;
+  }
+  textarea {
+    flex: 1; min-height: 230px;
+    background: #161b27; border: 1px solid #252d40; border-radius: 10px;
+    color: #e2e8f0; font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem; line-height: 1.75; padding: 14px;
+    resize: vertical; outline: none; transition: border-color 0.2s;
+  }
+  textarea:focus { border-color: #4f8ef7; }
+  textarea::placeholder { color: #3d4f6e; }
+
+  .btn-group { display: flex; flex-direction: column; gap: 9px; }
+
+  /* ── BUTTONS ── */
+  button {
+    cursor: pointer; border: none; border-radius: 8px;
+    padding: 11px 20px; font-family: 'Sora', sans-serif;
+    font-weight: 600; font-size: 0.76rem; letter-spacing: 0.04em;
+    transition: all 0.17s; white-space: nowrap;
+  }
+  .btn-primary { background: #4f8ef7; color: #fff; }
+  .btn-primary:hover { background: #6ba3ff; transform: translateY(-1px); }
+  .btn-png { background: #22c55e; color: #fff; }
+  .btn-png:hover { background: #4ade80; transform: translateY(-1px); }
+  .btn-png:disabled { background: #166534; color: #4ade80; cursor: not-allowed; transform: none; }
+  .btn-secondary { background: #1e2740; color: #94a3b8; border: 1px solid #252d40; }
+  .btn-secondary:hover { background: #252d40; color: #e2e8f0; }
+
+  /* ── FLAG PANEL ── */
+  #flagPanel {
+    width: 100%; max-width: 1100px;
+    background: #161b27; border: 1px solid #252d40; border-radius: 12px;
+    padding: 18px 22px; display: none;
+  }
+  #flagPanel h3 {
+    font-size: 0.65rem; font-weight: 700; color: #64748b;
+    text-transform: uppercase; letter-spacing: 0.13em;
+    font-family: 'JetBrains Mono', monospace; margin-bottom: 16px;
+  }
+  .step-badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    background: #4f8ef7; color: #fff; border-radius: 50%;
+    width: 18px; height: 18px; font-size: 0.62rem; font-weight: 700; margin-right: 7px;
+  }
+
+  .flag-upload-grid { display: flex; flex-wrap: wrap; gap: 10px; }
+
+  .flag-upload-item {
+    display: flex; align-items: center; gap: 10px;
+    background: #111827; border: 1px solid #1e2740; border-radius: 8px;
+    padding: 9px 14px; min-width: 210px;
+  }
+  .flag-preview {
+    width: 34px; height: 23px; border-radius: 3px; object-fit: cover;
+    border: 1px solid #252d40; background: #0f1117; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.58rem; color: #64748b; overflow: hidden;
+  }
+  .flag-preview img { width: 100%; height: 100%; object-fit: cover; }
+
+  .flag-lang-name { font-size: 0.73rem; color: #e2e8f0; font-weight: 600; flex: 1; }
+  .flag-lang-count { font-size: 0.59rem; color: #64748b; font-family: 'JetBrains Mono', monospace; }
+
+  .upload-btn-label {
+    cursor: pointer; background: #1e2740; border: 1px solid #252d40; border-radius: 5px;
+    padding: 5px 11px; font-size: 0.65rem; color: #94a3b8;
+    font-family: 'Sora', sans-serif; font-weight: 600;
+    transition: all 0.15s; white-space: nowrap;
+  }
+  .upload-btn-label:hover { background: #252d40; color: #e2e8f0; }
+  .upload-input { display: none; }
+
+  .panel-footer { margin-top: 16px; display: flex; gap: 10px; }
+
+  /* ── MEDIA CARD ── */
+  .result-wrap { width: 100%; max-width: 1100px; }
+
+  #mediaCard {
+    background: #161b27; border: 1px solid #252d40; border-radius: 12px;
+    overflow: hidden; font-family: 'Sora', sans-serif;
+  }
+
+  .card-header {
+    background: #111827; padding: 13px 22px;
+    display: flex; align-items: center; gap: 10px;
+    border-bottom: 1px solid #1e2740;
+  }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: #4f8ef7; flex-shrink: 0; }
+  .filename {
+    font-family: 'JetBrains Mono', monospace; font-size: 0.76rem;
+    font-weight: 600; color: #f7c94f; word-break: break-all;
+  }
+
+  .card-body { display: grid; grid-template-columns: 1fr 1fr 1fr; }
+  .section { padding: 18px 22px; border-right: 1px solid #1e2740; }
+  .section:last-child { border-right: none; }
+  .section-title {
+    font-size: 0.6rem; font-weight: 700; letter-spacing: 0.16em;
+    color: #64748b; text-transform: uppercase; margin-bottom: 13px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .row { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 7px; }
+  .lbl { font-size: 0.68rem; color: #94a3b8; white-space: nowrap; flex-shrink: 0; }
+  .val { font-size: 0.71rem; font-weight: 600; color: #e2e8f0; text-align: right; font-family: 'JetBrains Mono', monospace; }
+
+  .audio-item {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 0.71rem; color: #e2e8f0;
+    font-family: 'JetBrains Mono', monospace; margin-bottom: 7px; font-weight: 500;
+  }
+  .flag-img-card {
+    width: 24px; height: 16px; border-radius: 2px; object-fit: cover;
+    border: 1px solid rgba(255,255,255,0.1); flex-shrink: 0;
+  }
+  .flag-initials {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 24px; height: 16px; background: #1e2740; border-radius: 2px;
+    font-size: 0.5rem; font-weight: 700; color: #94a3b8;
+    font-family: 'JetBrains Mono', monospace; border: 1px solid #252d40; flex-shrink: 0;
+  }
+
+  .subs-section {
+    border-top: 1px solid #1e2740; padding: 14px 22px;
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  }
+  .subs-label {
+    font-size: 0.6rem; font-weight: 700; letter-spacing: 0.16em;
+    color: #64748b; text-transform: uppercase;
+    font-family: 'JetBrains Mono', monospace; flex-shrink: 0;
+  }
+  .sub-flag-group { display: flex; gap: 5px; align-items: center; flex-wrap: wrap; }
+  .sub-flag {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 32px; height: 22px; border-radius: 3px;
+    background: #1e2740; border: 1px solid #252d40; overflow: hidden;
+  }
+  .sub-flag img { width: 100%; height: 100%; object-fit: cover; }
+  .sub-flag-init {
+    font-size: 0.5rem; font-weight: 700; color: #64748b;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* ── ACTION ROW ── */
+  .action-row { display: flex; gap: 10px; margin-top: 12px; justify-content: flex-end; }
+  #output-card { display: none; }
+
+  /* ── MISC ── */
+  .error-msg {
+    background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.3);
+    border-radius: 8px; padding: 12px 16px; color: #f87171; font-size: 0.76rem;
+    display: none; width: 100%; max-width: 1100px;
+  }
+  .tip { font-size: 0.67rem; color: #3d4f6e; text-align: center; }
+  .spinner {
+    display: inline-block; width: 12px; height: 12px;
+    border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff;
+    border-radius: 50%; animation: spin 0.6s linear infinite;
+    margin-right: 6px; vertical-align: middle;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="app-header">
+  <h1>MediaInfo Card Generator</h1>
+  <p>Paste teks MediaInfo → Upload bendera → Download PNG</p>
+</div>
+
+<!-- STEP 1: INPUT -->
+<div class="editor-wrap">
+  <textarea id="inputText" placeholder="Paste teks MediaInfo di sini...
+(Bagian General, Video, Audio, Text)"></textarea>
+  <div class="btn-group">
+    <button class="btn-primary" onclick="parseAndShowFlags()">▶ Parse</button>
+    <button class="btn-secondary" onclick="loadSample()">Load Sample</button>
+    <button class="btn-secondary" onclick="clearAll()">✕ Clear</button>
+  </div>
+</div>
+
+<div class="error-msg" id="errorMsg"></div>
+
+<!-- STEP 2: FLAG UPLOAD PANEL -->
+<div id="flagPanel">
+  <h3><span class="step-badge">2</span> Upload gambar bendera untuk setiap bahasa</h3>
+  <div class="flag-upload-grid" id="flagUploadGrid"></div>
+  <div class="panel-footer">
+    <button class="btn-primary" onclick="buildCard()">▶ Buat Card</button>
+  </div>
+</div>
+
+<!-- STEP 3: OUTPUT CARD -->
+<div class="result-wrap" id="output-card">
+  <div id="mediaCard">
+    <div class="card-header">
+      <div class="dot"></div>
+      <div class="filename" id="outFilename">—</div>
+    </div>
+    <div class="card-body">
+      <div class="section" id="secGeneral"><div class="section-title">General</div></div>
+      <div class="section" id="secVideo"><div class="section-title">Video</div></div>
+      <div class="section" id="secAudio"><div class="section-title">Audio</div></div>
+    </div>
+    <div class="subs-section" id="secSubs">
+      <span class="subs-label">Subtitles</span>
+      <div class="sub-flag-group" id="subFlags"></div>
+    </div>
+  </div>
+  <div class="action-row">
+    <button class="btn-secondary" onclick="buildCard()">↺ Re-render</button>
+    <button class="btn-png" id="pngBtn" onclick="exportPNG()">⬇ Download PNG</button>
+  </div>
+</div>
+
+<p class="tip">Gambar bendera diupload dari komputer → tampil sempurna di PNG hasil export</p>
+
+<script>
+  // ── STATE ──
+  let parsedSections = [];
+  const flagStore = {}; // langKey -> base64 dataUrl
+
+  // ── SAMPLE DATA ──
+  const SAMPLE = `General
+Complete name               : C:\\Movies\\The.Legend.of.Hei.II.2025.1080p.IT.WEB-DL.DD5.1.H.264-ENK.mkv
+Format                      : Matroska
+File size                   : 5.75 GiB
+Duration                    : 1 h 58 min
+Overall bit rate            : 6 934 kb/s
+
+Video
+Format                      : AVC
+Format/Info                 : Advanced Video Codec
+Bit rate                    : 6 546 kb/s
+Width                       : 1 920 pixels
+Height                      : 804 pixels
+Display aspect ratio        : 2.39:1
+Frame rate                  : 24.000 FPS
+Bit depth                   : 8 bits
+Language                    : Mandarin
+
+Audio
+Format                      : AC-3
+Commercial name             : Dolby Digital
+Bit rate                    : 384 kb/s
+Channel(s)                  : 6 channels
+Channel layout              : L R C LFE Ls Rs
+Sampling rate               : 48.0 kHz
+Language                    : Mandarin
+
+Text #1
+Title                       : Simplified
+Language                    : Mandarin (Hans)
+
+Text #2
+Title                       : Simplified
+Language                    : Mandarin (Hans)
+
+Text #3
+Title                       : Traditional
+Language                    : Mandarin (Hant)
+
+Text #4
+Title                       : Traditional
+Language                    : Mandarin (Hant)
+
+Text #5
+Language                    : English
+
+Text #6
+Language                    : English
+
+Text #7
+Language                    : Indonesian
+
+Text #8
+Language                    : Indonesian
+
+Text #9
+Language                    : Malay
+
+Text #10
+Language                    : Malay
+
+Text #11
+Language                    : Thai
+
+Text #12
+Language                    : Thai`;
+
+  // ── PARSER ──
+  function parseSections(text) {
+    const lines = text.split('\n');
+    const sections = [];
+    let current = null;
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      if (/^(General|Video|Audio\s*#?\d*|Text\s*#?\d*|Image|Menu)$/i.test(trimmed)) {
+        current = { type: trimmed, fields: {} };
+        sections.push(current);
+      } else if (current && line.includes(':')) {
+        const idx = line.indexOf(':');
+        const key = line.substring(0, idx).trim();
+        const val = line.substring(idx + 1).trim();
+        if (key && val) current.fields[key] = val;
+      }
+    }
+    return sections;
+  }
+
+  function getField(fields, ...keys) {
+    for (const k of keys) {
+      const found = Object.keys(fields).find(fk => fk.toLowerCase().includes(k.toLowerCase()));
+      if (found) return fields[found];
+    }
+    return null;
+  }
+
+  function langKey(lang) {
+    return (lang || 'unknown').toLowerCase().trim().replace(/[^a-z0-9]/g, '_');
+  }
+
+  function collectLanguages(sections) {
+    const map = {};
+    const relevant = sections.filter(s => /^(audio|text)/i.test(s.type));
+    for (const sec of relevant) {
+      const lang = getField(sec.fields, 'Language') || 'Unknown';
+      const k = langKey(lang);
+      if (!map[k]) map[k] = { label: lang, count: 0 };
+      map[k].count++;
+    }
+    return map;
+  }
+
+  // ── STEP 1: PARSE ──
+  function parseAndShowFlags() {
+    const text = document.getElementById('inputText').value.trim();
+    const errEl = document.getElementById('errorMsg');
+    errEl.style.display = 'none';
+    if (!text) {
+      errEl.textContent = 'Paste teks MediaInfo dulu!';
+      errEl.style.display = 'block';
+      return;
+    }
+    parsedSections = parseSections(text);
+    if (!parsedSections.length) {
+      errEl.textContent = 'Tidak bisa parse MediaInfo. Pastikan formatnya benar.';
+      errEl.style.display = 'block';
+      return;
+    }
+
+    const langs = collectLanguages(parsedSections);
+    const grid = document.getElementById('flagUploadGrid');
+    grid.innerHTML = '';
+
+    for (const [key, info] of Object.entries(langs)) {
+      const item = document.createElement('div');
+      item.className = 'flag-upload-item';
+      item.innerHTML = `
+        <div class="flag-preview" id="prev_${key}">
+          <span style="font-size:0.55rem;color:#3d4f6e">?</span>
+        </div>
+        <div style="flex:1">
+          <div class="flag-lang-name">${info.label}</div>
+          <div class="flag-lang-count">${info.count} track</div>
+        </div>
+        <label class="upload-btn-label" for="file_${key}" id="lbl_${key}">Upload</label>
+        <input class="upload-input" type="file" id="file_${key}" accept="image/*"
+          onchange="handleFlagUpload('${key}', this)">
+      `;
+      grid.appendChild(item);
+    }
+
+    document.getElementById('flagPanel').style.display = 'block';
+    document.getElementById('output-card').style.display = 'none';
+  }
+
+  function handleFlagUpload(key, input) {
+    const file = input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      flagStore[key] = e.target.result;
+      const prev = document.getElementById('prev_' + key);
+      prev.innerHTML = `<img src="${e.target.result}" style="width:100%;height:100%;object-fit:cover">`;
+      const lbl = document.getElementById('lbl_' + key);
+      lbl.textContent = '✓ OK';
+      lbl.style.color = '#4ade80';
+      lbl.style.borderColor = '#166534';
+      lbl.style.background = '#052e16';
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function getFlagSrc(lang) {
+    return flagStore[langKey(lang)] || null;
+  }
+
+  // ── HELPERS ──
+  function makeRow(lbl, val) {
+    if (!val) return '';
+    return `<div class="row"><span class="lbl">${lbl}</span><span class="val">${val}</span></div>`;
+  }
+
+  function flagImgOrInitials(lang, forSub = false) {
+    const src = getFlagSrc(lang);
+    const initials = (lang || '?').replace(/\s*\(.*\)/, '').trim().substring(0, 2).toUpperCase();
+    if (forSub) {
+      return src
+        ? `<img src="${src}" style="width:100%;height:100%;object-fit:cover" alt="${lang}">`
+        : `<span class="sub-flag-init">${initials}</span>`;
+    } else {
+      return src
+        ? `<img class="flag-img-card" src="${src}" width="24" height="16" alt="${lang}">`
+        : `<span class="flag-initials">${initials}</span>`;
+    }
+  }
+
+  // ── STEP 2: BUILD CARD ──
+  function buildCard() {
+    const sections = parsedSections;
+    if (!sections.length) { alert('Parse dulu mediainfonya!'); return; }
+
+    const general     = sections.find(s => /^general$/i.test(s.type));
+    const video       = sections.find(s => /^video$/i.test(s.type));
+    const texts       = sections.filter(s => /^text/i.test(s.type));
+    const audioSecs   = sections.filter(s => /^audio/i.test(s.type));
+
+    // Filename
+    const fullname = general ? (getField(general.fields, 'Complete name', 'Filename', 'Name') || '') : '';
+    const parts = fullname.replace(/\\/g, '/').split('/');
+    document.getElementById('outFilename').textContent = parts[parts.length - 1] || fullname || 'Unknown file';
+
+    // General section
+    let gHtml = '<div class="section-title">General</div>';
+    if (general) {
+      const f = general.fields;
+      gHtml += makeRow('Format',   getField(f, 'Format'));
+      gHtml += makeRow('Duration', getField(f, 'Duration'));
+      gHtml += makeRow('Bitrate',  getField(f, 'Overall bit rate', 'Overall bitrate'));
+      gHtml += makeRow('Size',     getField(f, 'File size', 'Size'));
+    }
+    document.getElementById('secGeneral').innerHTML = gHtml;
+
+    // Video section
+    let vHtml = '<div class="section-title">Video</div>';
+    if (video) {
+      const f = video.fields;
+      const fmt   = getField(f, 'Format/Info', 'Format') || '';
+      const depth = getField(f, 'Bit depth');
+      vHtml += makeRow('Format', fmt + (depth ? ` (${depth} bits)` : ''));
+      const w = (getField(f, 'Width')  || '').replace(/\s*pixels/i, '').replace(/\s/g, '');
+      const h = (getField(f, 'Height') || '').replace(/\s*pixels/i, '').replace(/\s/g, '');
+      if (w && h) vHtml += makeRow('Resolution', `${w} × ${h}`);
+      vHtml += makeRow('Aspect ratio', getField(f, 'Display aspect ratio'));
+      vHtml += makeRow('Frame rate',   getField(f, 'Frame rate'));
+      vHtml += makeRow('Bit rate',     getField(f, 'Bit rate'));
+    }
+    document.getElementById('secVideo').innerHTML = vHtml;
+
+    // Audio section
+    let aHtml = '<div class="section-title">Audio</div>';
+    audioSecs.forEach(a => {
+      const f    = a.fields;
+      const lang = getField(f, 'Language') || 'Unknown';
+      const fmt  = getField(f, 'Commercial name', 'Format') || '';
+      const layout = getField(f, 'Channel layout') || '';
+      const chRaw  = getField(f, 'Channel(s)', 'Channels') || '';
+      let ch = '';
+      if (layout) {
+        const p = layout.trim().split(/\s+/);
+        const lfe = p.filter(x => x === 'LFE').length;
+        ch = `${p.length - lfe}.${lfe}ch`;
+      } else if (chRaw) {
+        ch = chRaw.replace(' channels', 'ch');
+      }
+      const br = getField(f, 'Bit rate') || '';
+      aHtml += `<div class="audio-item">${flagImgOrInitials(lang)} <span>${lang} / ${fmt} / ${ch} / ${br}</span></div>`;
+    });
+    if (!audioSecs.length) aHtml += '<span style="color:#64748b;font-size:0.71rem">No audio track found</span>';
+    document.getElementById('secAudio').innerHTML = aHtml;
+
+    // Subtitles
+    const subsEl = document.getElementById('secSubs');
+    if (texts.length) {
+      subsEl.style.display = 'flex';
+      document.getElementById('subFlags').innerHTML = texts.map(t => {
+        const lang = getField(t.fields, 'Language') || '';
+        return `<div class="sub-flag" title="${lang}">${flagImgOrInitials(lang, true)}</div>`;
+      }).join('');
+    } else {
+      subsEl.style.display = 'none';
+    }
+
+    document.getElementById('output-card').style.display = 'block';
+  }
+
+  // ── STEP 3: EXPORT PNG ──
+  async function exportPNG() {
+    const btn = document.getElementById('pngBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>Generating...';
+    await new Promise(r => setTimeout(r, 120));
+    try {
+      const card = document.getElementById('mediaCard');
+      const canvas = await html2canvas(card, {
+        backgroundColor: '#161b27',
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        logging: false,
+      });
+      const link = document.createElement('a');
+      const fname = (document.getElementById('outFilename').textContent || 'mediainfo').replace(/\.[^.]+$/, '');
+      link.download = fname + '_mediainfo.png';
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    } catch(e) {
+      alert('Export gagal: ' + e.message);
+    }
+    btn.disabled = false;
+    btn.innerHTML = '⬇ Download PNG';
+  }
+
+  function loadSample() { document.getElementById('inputText').value = SAMPLE; }
+
+  function clearAll() {
+    document.getElementById('inputText').value = '';
+    document.getElementById('flagPanel').style.display = 'none';
+    document.getElementById('output-card').style.display = 'none';
+    document.getElementById('errorMsg').style.display = 'none';
+    parsedSections = [];
+    for (const k in flagStore) delete flagStore[k];
+  }
+</script>
+</body>
+</html>
